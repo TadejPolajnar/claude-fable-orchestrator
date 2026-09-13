@@ -19,7 +19,7 @@ You are the root orchestrator: a fable planner/integrator that delegates bounded
 ## Flow selection
 
 - Flows live in `flows/` next to this SKILL.md.
-- If the user names a flow, load `flows/<name>.md` and follow it.
+- If the user names a flow, load `flows/<name>.md` and follow it. A named flow is an explicit delegation request — do not reclassify the task as root-only.
 - Otherwise pick by task shape using each flow's description, and state which flow you picked.
 - Available flows:
   - `quick` — one bounded worker task.

@@ -1,0 +1,128 @@
+# Eval dataset. Assertion types:
+#   file_exists      path
+#   file_contains    path + pattern (regex)
+#   output_contains  pattern (regex on result text)
+#   tests_pass       cmd (shlex-split, run in workdir snapshot)
+#   files_unchanged  paths (sha256 vs pre-run manifest)
+# level = "error" fails the task; "warn" reports without failing.
+
+[[task]]
+id = "calc-bug"
+fixture = "calc"
+prompt = "Use the debug flow: average() in calc.py crashes on an empty list (ZeroDivisionError). Find and fix the bug, verify with python3 run_tests.py, and say what was wrong."
+expect_flow = "debug"
+must_spawn_any = [["worker"], ["tester"]]
+timeout_s = 600
+
+[[task.assertion]]
+type = "file_contains"
+path = "calc.py"
+pattern = "0\\.0|len\\(numbers\\)|not numbers"
+level = "error"
+
+[[task.assertion]]
+type = "tests_pass"
+cmd = "python3 run_tests.py"
+level = "error"
+
+[[task.assertion]]
+type = "output_contains"
+pattern = "average|empty|divide"
+level = "error"
+
+[[task]]
+id = "stats-feature"
+fixture = "calc-clean"
+prompt = "Use the full flow: add a stats.py module exposing median() and pstdev() (population standard deviation) that reuse helpers from calc.py, and extend test coverage so run_tests.py exercises them."
+expect_flow = "full"
+must_spawn = ["worker"]
+timeout_s = 600
+
+[[task.assertion]]
+type = "file_exists"
+path = "stats.py"
+level = "error"
+
+[[task.assertion]]
+type = "file_contains"
+path = "stats.py"
+pattern = "median|pstdev"
+level = "error"
+
+[[task.assertion]]
+type = "tests_pass"
+cmd = "python3 run_tests.py"
+level = "error"
+
+[[task]]
+id = "repo-survey"
+fixture = "shop"
+prompt = "Use the research flow: survey this repo and report where the discount logic lives (files and functions) and how cart totals apply it. Report only — do not modify any files."
+expect_flow = "research"
+must_not_spawn = ["worker"]
+timeout_s = 600
+
+[[task.assertion]]
+type = "files_unchanged"
+paths = ["catalog.py", "pricing.py", "cart.py"]
+level = "error"
+
+[[task.assertion]]
+type = "output_contains"
+pattern = "pricing"
+level = "error"
+
+[[task]]
+id = "typo-fix"
+fixture = "typo"
+prompt = "Use the quick flow: greeting() in greet.py returns a misspelled string. Fix the spelling and verify with python3 run_tests.py."
+expect_flow = "quick"
+max_spawned = 2
+timeout_s = 600
+
+[[task.assertion]]
+type = "file_contains"
+path = "greet.py"
+pattern = "Hello, world!"
+level = "error"
+
+[[task.assertion]]
+type = "tests_pass"
+cmd = "python3 run_tests.py"
+level = "error"
+
+[[task]]
+id = "unpicked-feature"
+fixture = "calc-clean"
+prompt = "Add a clamp(value, low, high) helper to calc.py returning value bounded to [low, high], and add test coverage for it."
+min_spawned = 1
+timeout_s = 600
+
+[[task.assertion]]
+type = "file_contains"
+path = "calc.py"
+pattern = "def clamp"
+level = "error"
+
+[[task.assertion]]
+type = "tests_pass"
+cmd = "python3 run_tests.py"
+level = "error"
+
+[[task]]
+id = "trivial"
+fixture = "typo"
+prompt = "Fix the typo in greeting() in greet.py."
+max_spawned = 1
+timeout_s = 600
+
+[[task.assertion]]
+type = "file_contains"
+path = "greet.py"
+pattern = "Hello, world!"
+level = "error"
+
+[[task.assertion]]
+type = "tests_pass"
+cmd = "python3 run_tests.py"
+level = "error"

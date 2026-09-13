@@ -12,6 +12,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 DEFAULT_DIR: Path = Path.home() / ".claude" / "projects"
 SESSION_GLOB: str = "*.jsonl"
+SESSION_PATTERN: str = f"*/{SESSION_GLOB}"
+SUBAGENTS_DIR: str = "subagents"
+SUBAGENT_GLOB: str = "agent-*.jsonl"
+META_SUFFIX: str = ".meta.json"
+AGENT_TYPE_FIELD: str = "agentType"
+DEFAULT_ROLE: str = "subagent"
 INPUT_TOKENS: str = "input_tokens"
 OUTPUT_TOKENS: str = "output_tokens"
 CACHE_CREATION_TOKENS: str = "cache_creation_input_tokens"
@@ -74,9 +80,11 @@ class SessionUsage:
     path: Path
     mtime: float
     message_count: int = 0
+    subagent_count: int = 0
     totals: UsageTotals = field(default_factory=UsageTotals)
     lanes: Dict[str, UsageTotals] = field(default_factory=_empty_lanes)
     by_model: Dict[str, UsageTotals] = field(default_factory=dict)
+    by_role: Dict[str, UsageTotals] = field(default_factory=dict)
 
 
 def load_lines(path: Path) -> List[str]:
@@ -121,6 +129,57 @@ def parse_entry(line: str) -> Optional[ParsedEntry]:
     )
 
 
+def _add_entry(
+    session: SessionUsage,
+    entry: ParsedEntry,
+    sidechain: bool,
+    role: Optional[str],
+) -> None:
+    session.message_count += 1
+    session.totals.add(entry.usage)
+    lane = SIDECHAIN_LANE if sidechain else MAIN_LANE
+    session.lanes[lane].add(entry.usage)
+    session.by_model.setdefault(entry.model, UsageTotals()).add(entry.usage)
+    if role is not None:
+        session.by_role.setdefault(role, UsageTotals()).add(entry.usage)
+
+
+def _subagent_role(path: Path) -> str:
+    meta_path = path.with_suffix(META_SUFFIX)
+    try:
+        data: object = json.loads(
+            meta_path.read_text(encoding="utf-8", errors="replace")
+        )
+    except (OSError, ValueError):
+        return DEFAULT_ROLE
+    if not isinstance(data, dict):
+        return DEFAULT_ROLE
+    role: object = data.get(AGENT_TYPE_FIELD)
+    if isinstance(role, str) and role:
+        return role
+    return DEFAULT_ROLE
+
+
+def _subagent_files(directory: Path) -> List[Path]:
+    if not directory.is_dir():
+        return []
+    try:
+        return sorted(p for p in directory.glob(SUBAGENT_GLOB) if p.is_file())
+    except OSError:
+        return []
+
+
+def _aggregate_subagents(session: SessionUsage) -> None:
+    directory = session.path.parent / session.path.stem / SUBAGENTS_DIR
+    for path in _subagent_files(directory):
+        session.subagent_count += 1
+        role = _subagent_role(path)
+        for line in load_lines(path):
+            entry = parse_entry(line)
+            if entry is not None:
+                _add_entry(session, entry, True, role)
+
+
 def aggregate_session(path: Path) -> SessionUsage:
     session = SessionUsage(
         project=path.parent.name,
@@ -130,13 +189,9 @@ def aggregate_session(path: Path) -> SessionUsage:
     )
     for line in load_lines(path):
         entry = parse_entry(line)
-        if entry is None:
-            continue
-        session.message_count += 1
-        session.totals.add(entry.usage)
-        lane = SIDECHAIN_LANE if entry.is_sidechain else MAIN_LANE
-        session.lanes[lane].add(entry.usage)
-        session.by_model.setdefault(entry.model, UsageTotals()).add(entry.usage)
+        if entry is not None:
+            _add_entry(session, entry, entry.is_sidechain, None)
+    _aggregate_subagents(session)
     return session
 
 
@@ -162,7 +217,7 @@ def scan_sessions(
     if not root.is_dir():
         return []
     try:
-        candidates = [p for p in root.rglob(SESSION_GLOB) if p.is_file()]
+        candidates = [p for p in root.glob(SESSION_PATTERN) if p.is_file()]
     except OSError:
         return []
     paths: List[Path] = []
@@ -202,8 +257,10 @@ def _usage_block(title: str, rows: List[Tuple[str, UsageTotals]]) -> List[str]:
     return lines
 
 
-def _sorted_models(by_model: Dict[str, UsageTotals]) -> List[Tuple[str, UsageTotals]]:
-    return sorted(by_model.items(), key=lambda item: item[1].total, reverse=True)
+def _sorted_usage(
+    buckets: Dict[str, UsageTotals],
+) -> List[Tuple[str, UsageTotals]]:
+    return sorted(buckets.items(), key=lambda item: item[1].total, reverse=True)
 
 
 def _lane_rows(lanes: Dict[str, UsageTotals]) -> List[Tuple[str, UsageTotals]]:
@@ -221,10 +278,12 @@ def _format_session(session: SessionUsage) -> List[str]:
     )
     lines = [
         f"session {session.session_id}  project={session.project}  "
-        f"modified={stamp}  messages={session.message_count}"
+        f"modified={stamp}  messages={session.message_count}  "
+        f"subagents={session.subagent_count}"
     ]
-    lines.extend(_usage_block("model", _sorted_models(session.by_model)))
+    lines.extend(_usage_block("model", _sorted_usage(session.by_model)))
     lines.extend(_usage_block("lane", _lane_rows(session.lanes)))
+    lines.extend(_usage_block("role", _sorted_usage(session.by_role)))
     return lines
 
 
@@ -234,19 +293,26 @@ def _combine(sessions: List[SessionUsage]) -> SessionUsage:
     )
     for session in sessions:
         combined.message_count += session.message_count
+        combined.subagent_count += session.subagent_count
         combined.totals.add(session.totals)
         for lane, usage in session.lanes.items():
             combined.lanes[lane].add(usage)
         for model, usage in session.by_model.items():
             combined.by_model.setdefault(model, UsageTotals()).add(usage)
+        for role, usage in session.by_role.items():
+            combined.by_role.setdefault(role, UsageTotals()).add(usage)
     return combined
 
 
 def _format_total(sessions: List[SessionUsage]) -> List[str]:
     combined = _combine(sessions)
-    lines = [f"TOTAL  sessions={len(sessions)}  messages={combined.message_count}"]
-    lines.extend(_usage_block("model", _sorted_models(combined.by_model)))
+    lines = [
+        f"TOTAL  sessions={len(sessions)}  messages={combined.message_count}  "
+        f"subagents={combined.subagent_count}"
+    ]
+    lines.extend(_usage_block("model", _sorted_usage(combined.by_model)))
     lines.extend(_usage_block("lane", _lane_rows(combined.lanes)))
+    lines.extend(_usage_block("role", _sorted_usage(combined.by_role)))
     return lines
 
 

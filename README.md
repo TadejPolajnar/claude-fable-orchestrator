@@ -107,10 +107,10 @@ python3 scripts/token_usage.py --latest           # most recent session
 python3 scripts/token_usage.py --date 2026-01-15  # sessions on a date
 ```
 
-Reads `~/.claude/projects/**/*.jsonl` transcripts; `--dir` and `--project`
-narrow the scan. Reports per-model sums and a main-vs-sidechain (subagent)
-split — not per-agent/per-role: Claude transcripts do not carry the role
-labels upstream's per-role breakdown used.
+Reads `~/.claude/projects/<project>/<session>.jsonl` transcripts plus each
+session's `subagents/agent-*.jsonl` files; `--dir` and `--project` narrow the
+scan. Reports per-model sums, a main-vs-sidechain split, and a per-agent-role
+breakdown from `agent-*.meta.json` (`agentType`, fallback role `subagent`).
 
 ## Notes
 
