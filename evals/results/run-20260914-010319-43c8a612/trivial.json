@@ -1,0 +1,33 @@
+{
+  "id": "trivial",
+  "prompt": "Fix the typo in greeting() in greet.py.",
+  "model": "sonnet",
+  "session_id": "4d2a25a6-5a42-4871-a65c-8a6052fbecce",
+  "claude_version": "2.1.258 (Claude Code)",
+  "scaffold_commit": "a458a85cc0f37c3527fe42bfac6722d2184920b8-dirty",
+  "returncode": 0,
+  "duration_s": 17.02,
+  "timed_out": false,
+  "result_text": "Fixed \"Hlelo\" \u2192 \"Hello\" in greet.py.",
+  "workdir_snapshot": "trivial/workdir",
+  "manifest": {
+    "greet.py": "c1e51cd054b0401118569d70d9b1b6a03e01481db1c11ac70614937c605052ff",
+    "run_tests.py": "ae1a546672c7c08b23bfb7175e00bb398495c3cdd182693cdc98fea087a798af",
+    "test_greet.py": "64c1abd2e016bf8fb941eff76f645c3549827c17a5e2138512e5addc62b679ea"
+  },
+  "session_file": "/Users/tadejpolajnar/.claude/projects/-Users-tadejpolajnar-Documents-Projects-Work-experiments-claude-fable-orchestrator-evals--work-trivial/4d2a25a6-5a42-4871-a65c-8a6052fbecce.jsonl",
+  "transcript": {
+    "path": "/Users/tadejpolajnar/.claude/projects/-Users-tadejpolajnar-Documents-Projects-Work-experiments-claude-fable-orchestrator-evals--work-trivial/4d2a25a6-5a42-4871-a65c-8a6052fbecce.jsonl",
+    "spawned": [],
+    "skill_invoked": false,
+    "flow_observed": null,
+    "flow_source": null,
+    "main_model": "claude-sonnet-5",
+    "main_usage": {
+      "input_tokens": 10,
+      "output_tokens": 472,
+      "cache_creation_input_tokens": 16045,
+      "cache_read_input_tokens": 182132
+    }
+  }
+}

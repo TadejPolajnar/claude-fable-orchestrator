@@ -1,0 +1,46 @@
+{
+  "id": "repo-survey",
+  "prompt": "Use the research flow: survey this repo and report where the discount logic lives (files and functions) and how cart totals apply it. Report only \u2014 do not modify any files.",
+  "model": "sonnet",
+  "session_id": "9439cbdb-a750-4912-a547-cd6d547cffa9",
+  "claude_version": "2.1.258 (Claude Code)",
+  "scaffold_commit": "a458a85cc0f37c3527fe42bfac6722d2184920b8-dirty",
+  "returncode": 0,
+  "duration_s": 43.95,
+  "timed_out": false,
+  "result_text": "## Discount logic survey\n\n**Location:** all in `pricing.py`\n- `DISCOUNT_TIERS` (pricing.py:1-5) \u2014 `(min_quantity, rate)` tiers\n- `discount_rate(quantity)` (pricing.py:8-12) \u2014 picks the applicable rate, first match wins\n- `apply_discount(unit_price_cents, quantity)` (pricing.py:15-18) \u2014 applies rate, multiplies by quantity\n\n**Call chain (cart total):**\n```\nCart.total_cents()  cart.py:21-25\n \u2514\u2500 per (sku, qty)  cart.py:23\n     \u251c\u2500 price_of(sku) \u2192 find_item()   catalog.py:20-24, 13-17\n     \u2514\u2500 apply_discount(price, qty)    pricing.py:15\n         \u2514\u2500 discount_rate(qty)        pricing.py:8\n```\nEach line's discounted subtotal is accumulated into `total` at cart.py:24.\n\n**Rules/edge cases:**\n- Tiers: qty\u226510 \u2192 15%, qty\u22655 \u2192 10%, qty\u22653 \u2192 5%, else 0%. No stacking \u2014 first match wins, so correctness relies on `DISCOUNT_TIERS` staying sorted descending.\n- Discount is per-line quantity, not per-cart-total quantity. `Cart.add` merges quantities per SKU (cart.py:13), so repeated `add` calls on the same SKU can cross a tier threshold.\n- Rounding happens per-unit before multiplying by quantity (pricing.py:17-18), which can compound rounding error vs. rounding the line total once.\n- No cart-wide minimum, no discount cap.\n- `apply_discount` doesn't guard against negative quantity if called directly (unreachable via `Cart.add`, which raises on qty \u2264 0).\n- No test files exist in the repo.\n\nNo files were modified.",
+  "workdir_snapshot": "repo-survey/workdir",
+  "manifest": {
+    "README.txt": "b184d5c6700ac654bb87773ec5bf8d7eebf873c23736c7a16621c27873ff5d34",
+    "cart.py": "d2c62799b000b993a8efff9bf9792ae4be600ceaa5ee0d914b5f72b82e30fded",
+    "catalog.py": "d6d3f47151f5c19e6a291bc2eaa6bb43f92b941221a98a404d1bb3c8ca548236",
+    "pricing.py": "30b1fe157d38b765b6e11fa0c2db35ad8898671b01fd228fcbfafc1528c2fba3"
+  },
+  "session_file": "/Users/tadejpolajnar/.claude/projects/-Users-tadejpolajnar-Documents-Projects-Work-experiments-claude-fable-orchestrator-evals--work-repo-survey/9439cbdb-a750-4912-a547-cd6d547cffa9.jsonl",
+  "transcript": {
+    "path": "/Users/tadejpolajnar/.claude/projects/-Users-tadejpolajnar-Documents-Projects-Work-experiments-claude-fable-orchestrator-evals--work-repo-survey/9439cbdb-a750-4912-a547-cd6d547cffa9.jsonl",
+    "spawned": [
+      {
+        "role": "explorer",
+        "model": "claude-opus-5",
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 1705,
+          "cache_creation_input_tokens": 72642,
+          "cache_read_input_tokens": 26872
+        },
+        "path": "/Users/tadejpolajnar/.claude/projects/-Users-tadejpolajnar-Documents-Projects-Work-experiments-claude-fable-orchestrator-evals--work-repo-survey/9439cbdb-a750-4912-a547-cd6d547cffa9/subagents/agent-a81f9d2844fd0c771.jsonl"
+      }
+    ],
+    "skill_invoked": true,
+    "flow_observed": "research",
+    "flow_source": "skill-args",
+    "main_model": "claude-sonnet-5",
+    "main_usage": {
+      "input_tokens": 14,
+      "output_tokens": 2214,
+      "cache_creation_input_tokens": 25074,
+      "cache_read_input_tokens": 272978
+    }
+  }
+}
